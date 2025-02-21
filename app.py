@@ -9,15 +9,15 @@ from dotenv import load_dotenv
 # Load environment variables from a .env file
 load_dotenv()
 
-# --- Custom CSS for an eye-catching look, including Google Font "Quintessential" ---
+# --- Custom CSS for an eye-catching look, including Google Font "Raleway" and highlight style ---
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Quintessential&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
     
-    /* Apply Quintessential font globally with !important */
+    /* Apply Raleway font globally with !important */
     body, .stApp, h1, h2, h3, h4, h5, h6, p, div {
-        font-family: 'Quintessential', cursive !important;
+        font-family: 'Raleway', sans-serif !important;
     }
     
     /* Set a fixed travel-themed background image */
@@ -70,7 +70,32 @@ st.markdown(
        transform: scale(1.02);
        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     }
+    
+    /* Highlight style to replace markdown bold */
+    .highlight {
+        background-color: #FFFF99;
+        padding: 0 2px;
+        border-radius: 3px;
+        font-weight: bold;
+    }
     </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# --- Header Image with Base64 Embedding ---
+import base64
+
+def get_base64_image(image_path):
+    with open(image_path, 'rb') as f:
+        return base64.b64encode(f.read()).decode()
+
+header_image_data = get_base64_image('header-image.png')
+st.markdown(
+    f"""
+    <div class="header-img">
+        <img src="data:image/png;base64,{header_image_data}" alt="Travel" style="border-radius: 10px;">
+    </div>
     """,
     unsafe_allow_html=True
 )
@@ -89,8 +114,14 @@ st.sidebar.info(
 )
 
 # Set up Groq API credentials and configuration
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 GROQ_MODEL = "llama-3.3-70b-versatile"
+
+# Improved function to convert markdown bold (**text**) to HTML with highlight styling.
+def convert_markdown_to_html(text):
+    pattern = r'(^|\s)\*\*(.+?)\*\*'
+    replacement = r'\1<span class="highlight">\2</span>'
+    return re.sub(pattern, replacement, text)
 
 # Function to generate travel itinerary using Groq AI
 def generate_itinerary(destination, days, budget, interests):
@@ -129,7 +160,7 @@ def generate_itinerary(destination, days, budget, interests):
 
 # Function to display each day in its own bounding box with hover effect.
 def display_bounding_boxes(itinerary_text):
-    # Insert line breaks before "- Afternoon:" and "- Evening:" if not already present.
+    # Ensure sections like Afternoon and Evening start on new lines.
     itinerary_text = itinerary_text.replace(" - Afternoon:", "\n- Afternoon:")
     itinerary_text = itinerary_text.replace(" - Evening:", "\n- Evening:")
     
@@ -140,16 +171,16 @@ def display_bounding_boxes(itinerary_text):
     for line in lines:
         line = line.strip()
         if line.startswith("**Day"):
-            # Remove asterisks and extra spaces to get a clean heading
+            # Convert markdown bold to HTML for the day heading.
             day_heading = line.strip("*").strip()
             current_day = day_heading
             days[current_day] = []
         elif current_day:
-            days[current_day].append(line)
+            days[current_day].append(convert_markdown_to_html(line))
     
-    # Render each day's content in its own styled box
+    # Render each day's content in its own styled box.
     for day, content_lines in days.items():
-        content = "<br>".join(content_lines)  # Use <br> for line breaks within the box
+        content = "<br>".join(content_lines)
         html = f'<div class="day-box"><h3>{day}</h3><p>{content}</p></div>'
         st.markdown(html, unsafe_allow_html=True)
 
@@ -163,7 +194,7 @@ def typewriter_effect(text, speed=0.02):
         time.sleep(speed)
 
 # --- Main App UI ---
-st.title("AI Travel Planner 🧳✈️")
+st.title("AI Travel Planner ")
 
 with st.form("trip_form"):
     destination = st.text_input("Enter your destination", placeholder="E.g., Paris, Tokyo")
@@ -185,7 +216,7 @@ with st.form("trip_form"):
 
 if submit_button:
     if destination and days and budget and (selected_interests or additional_interest):
-        st.subheader("Your AI-Generated Itinerary 📍")
+        st.subheader("Your AI-Generated Itinerary ")
         interests_combined = ", ".join(selected_interests)
         if additional_interest:
             interests_combined = interests_combined + ", " + additional_interest if interests_combined else additional_interest
@@ -194,9 +225,9 @@ if submit_button:
             itinerary = generate_itinerary(destination, days, budget, interests_combined)
             time.sleep(1)  # Optional delay for effect
         
-        # Display the itinerary using bounding boxes for each day
+        # Display the itinerary using bounding boxes for each day.
         display_bounding_boxes(itinerary)
-        # Uncomment the line below to use the typewriter effect if desired
+        # Uncomment the line below to use the typewriter effect if desired.
         # typewriter_effect(itinerary, speed=0.02)
     else:
         st.error("Please fill in all the fields before planning your trip.")
