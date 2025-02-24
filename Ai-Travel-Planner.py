@@ -61,7 +61,7 @@ if st.button("Generate Itinerary"):
             )
 
             # Call Groq API
-            api_key = st.secrets["groq"]["api_key"]
+            api_key = st.secrets["api_key"]
             headers = {"Authorization": f"Bearer {api_key}"}
             data = {
                 "model": "mixtral-8x7b-32768",  # Example Groq model name; replace with the correct one
