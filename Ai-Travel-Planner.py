@@ -135,7 +135,7 @@ if st.button("Generate Itinerary"):
             api_key = st.secrets["api_key"]
             headers = {"Authorization": f"Bearer {api_key}"}
             data = {
-                "model": "deepseek-r1-distill-llama-70b-specdec",  
+                "model": "qwen-2.5-32b",  # Example Groq model name; replace with the correct one
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 1.0,
             }
