@@ -115,7 +115,14 @@ if st.button("Generate Itinerary"):
                         - For each activity or dining option, include:
                         - A brief description (1-2 sentences).
                         - Estimated cost in INR (covering entrance fees and meals, excluding transportation costs).
-                        - A Google Maps link for each place, destination, museum, restaurant, or activity in markdown format, e.g., `[Place Name](Google Maps URL)`.
+                        - When referencing specific places, destinations, museums, restaurants, or activities, enclose their names in double asterisks (e.g., **Place Name**).
+                        - Don't provide the whole link to the user, just make the 'place' a href link that will take the user to the Google Maps search page for that location.
+                        - When referencing specific places, destinations, museums, restaurants, or activities, output the place name as a clickable Markdown hyperlink. Use this format: 
+                            [Place Name](https://www.google.com/maps/search/?api=1&query=Activity+Name+at+Location+Name). Replace 'Activity Name' and 'Location Name' with 
+                            the appropriate values. For example, if the activity is 'Eiffel Tower' and the location is 'Paris', the output should be: 
+                            [Eiffel Tower](https://www.google.com/maps/search/?api=1&query=Eiffel+Tower+at+Paris)."
+
+                        
                         - At the end of each day, provide a total estimated cost for that day in INR.
 
                         **Cultural Notes:**
