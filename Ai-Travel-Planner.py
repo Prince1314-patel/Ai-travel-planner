@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 import re
-from prompt import prompt
+from prompt import get_prompt
 
 # Predefined dictionaries for prompt guidance
 pace_definitions = {
@@ -70,8 +70,9 @@ else:
 companions = st.radio("Travel companions", options=["Solo", "Couple", "Family", "Group"])
 if companions == "Family":
     child_ages = st.text_input(
-        "Ages of children (e.g., 5, 8, 12)", 
-        help="Enter ages separated by commas"
+        "Children's Ages (comma-separated)",
+        placeholder="e.g., 5, 8, 12",
+        help="Enter ages of children traveling"
     )
 accommodation = st.selectbox(
     "Accommodation preference",
@@ -117,64 +118,31 @@ if st.button("Generate Itinerary"):
     else:
         with st.spinner("Generating your personalized itinerary... (this may take a few seconds)"):
             # Construct the prompt
-            prompt = f"""
-                Create a {num_days}-day itinerary for {destination} with a total budget of ₹{total_budget}. 
-                The traveler is a {companions.lower()} who prioritizes interests as follows: {interests_str}. 
-                {'For family travelers, include activities suitable for children aged ' + child_ages + '.' if companions == 'Family' and child_ages else ''}
-                They prefer {accommodation.lower()} for accommodations, {transportation.lower()} for transportation, and {dining.lower()} for dining. 
-                The overall pace should be {pace.lower()}, meaning {pace_definitions[pace]}.
-
-                **Budget Allocation:**
-                - Accommodation: ₹{accom_budget}
-                - Activities: ₹{activity_budget}
-                - Dining: ₹{dining_budget}
-                - Transportation: ₹{transport_budget}
-
-                **Traveler Details:**
-                - Special requests: {special_requests if special_requests else 'None'}
-                - Dietary restrictions: {dietary_restrictions if dietary_restrictions else 'None'}
-                - Accessibility needs: {accessibility_needs if accessibility_needs else 'None'}
-                - Nationality: {nationality if nationality else 'None'}
-                - Travel month: {travel_month} (prioritize activities suitable for this season)
-
-                **Guidance:**
-                - For companions: {companion_guidance[companions]}
-                - For transportation: {transportation_guidance[transportation]}
-                - For dining: {dining_guidance[dining]}
-
-                **Itinerary Requirements:**
-                - Format the itinerary in markdown using ### for each day (e.g., ### Day 1) and #### for time slots (e.g., #### Morning, #### Afternoon, #### Evening).
-                - Use bullet points to list activities under each time slot.
-                - For each activity or dining option, include:
-                - A brief description (1-2 sentences).
-                - Estimated cost in INR (covering entrance fees and meals, excluding transportation costs).
-                - When referencing specific places, destinations, museums, restaurants, or activities, output the place name as a clickable Markdown hyperlink. Use this format: 
-                    [Place Name](https://www.google.com/maps/search/?api=1&query=Activity+Name+at+Location+Name).
-                - At the end of each day, provide a total estimated cost for that day in INR.
-
-                **Cultural Notes:**
-                - Briefly explain any local terms, cuisines, or customs that may be unfamiliar to Indian travelers. 
-                For example, if mentioning 'Gelato' in Italy, note: '(Gelato is a creamy Italian frozen dessert similar to ice cream but richer in texture).'
-                - Integrate these explanations naturally within the activity descriptions.
-
-                **Budget Instructions:**
-                - Ensure the total cost (accommodation, activities, dining, and transportation) does not exceed ₹{total_budget}.
-                - Allocate the budget across all categories as specified and convert all costs to INR using up-to-date exchange rates.
-                - Itemize costs for each activity and provide a daily total.
-
-                **Summary Section:**
-                - At the end of the itinerary, include a summary table in markdown breaking down the total estimated cost by category (e.g., accommodation, activities, dining, transportation) to confirm it stays within ₹{total_budget}.
-
-                **Additional Notes:**
-                - Strictly adhere to dietary restrictions ({dietary_restrictions}), accessibility needs ({accessibility_needs}), and special requests ({special_requests}).
-                - Since travel is in {travel_month}, include seasonal activities or events, e.g., festivals or weather-specific options.
-
-                **Personalized Tips:**
-                - Since you’re interested in {interests_str}, try these local experiences: [list 2-3 suggestions].
-
-                **Weather Information:**
-                - For {travel_month} in {destination}, expect average temperatures of X°C and [weather condition]. Pack accordingly!
-                """
+            prompt = get_prompt(
+                num_days=num_days,
+                destination=destination,
+                total_budget=total_budget,
+                companions=companions,
+                interests_str=interests_str,
+                child_ages=child_ages if companions == 'Family' else None,
+                accommodation=accommodation,
+                transportation=transportation,
+                dining=dining,
+                pace=pace,
+                accom_budget=accom_budget,
+                activity_budget=activity_budget,
+                dining_budget=dining_budget,
+                transport_budget=transport_budget,
+                special_requests=special_requests,
+                dietary_restrictions=dietary_restrictions,
+                accessibility_needs=accessibility_needs,
+                nationality=nationality,
+                travel_month=travel_month,
+                pace_definitions=pace_definitions,
+                companion_guidance=companion_guidance,
+                transportation_guidance=transportation_guidance,
+                dining_guidance=dining_guidance
+            )
 
             # Call Groq API (replace with your API key and endpoint)
             api_key = st.secrets["api_key"]  # Ensure API key is stored in Streamlit secrets
