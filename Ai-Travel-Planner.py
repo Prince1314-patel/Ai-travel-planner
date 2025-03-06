@@ -3,7 +3,7 @@ import requests
 import json
 import re
 import urllib3
-from prompt import get_prompt_prefernce, get_prompt_cost
+from prompt import get_prompt_preference, get_prompt_cost
 
 # Disable insecure HTTPS request warnings (short-term workaround)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -53,12 +53,9 @@ travel_month = st.selectbox("Travel month", options=[
 ])
 companions = st.radio("Travel companions", options=["Solo", "Couple", "Family", "Group"])
 
-# Budget Breakdown Section for cost estimation
-st.subheader("Budget Breakdown (INR)")
-accom_budget = st.number_input("Accommodation budget", min_value=0.0, step=500.0)
-dining_budget = st.number_input("Dining budget", min_value=0.0, step=500.0)
-transport_budget = st.number_input("Transportation budget", min_value=0.0, step=500.0)
-total_budget = accom_budget + dining_budget + transport_budget
+# Budget Section for cost estimation
+st.subheader("Budget (INR)")
+total_budget = st.number_input("Total budget", min_value=0.0, step=500.0)
 st.write(f"**Total Budget:** ₹{total_budget}")
 st.write("All costs will be estimated in INR.")
 
@@ -84,9 +81,6 @@ if st.button("Get Cost Estimates"):
                 num_days=num_days,
                 travel_month=travel_month,
                 companions=companions,
-                accom_budget=accom_budget,
-                dining_budget=dining_budget,
-                transport_budget=transport_budget,
                 total_budget=total_budget
             )
             api_key = st.secrets["api_key"]
@@ -255,7 +249,7 @@ if st.button("Generate Itinerary"):
         else:
             with st.spinner("Generating your personalized itinerary..."):
                 # Construct the prompt with complete details
-                prompt = get_prompt_prefernce(
+                prompt = get_prompt_preference(
                     num_days=days,
                     destination=dest,
                     total_budget=total_budget_value,
@@ -266,10 +260,6 @@ if st.button("Generate Itinerary"):
                     transportation=normalized_transport,  # Use normalized key for guidance
                     dining=dining,
                     pace=pace,
-                    accom_budget=None,
-                    activity_budget=None,
-                    dining_budget=None,
-                    transport_budget=None,
                     special_requests=special_requests,
                     dietary_restrictions=dietary_restrictions,
                     accessibility_needs=accessibility_needs,

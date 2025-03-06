@@ -1,4 +1,4 @@
-def get_prompt_prefernce(num_days, destination, total_budget, companions, interests_str, child_ages, accommodation, transportation, dining, pace, accom_budget, activity_budget, dining_budget, transport_budget, special_requests, dietary_restrictions, accessibility_needs, nationality, travel_month, pace_definitions, companion_guidance, transportation_guidance, dining_guidance):
+def get_prompt_preference(num_days, destination, total_budget, companions, interests_str, child_ages, accommodation, transportation, dining, pace, special_requests, dietary_restrictions, accessibility_needs, nationality, travel_month, pace_definitions, companion_guidance, transportation_guidance, dining_guidance):
     return f"""
             Create a {num_days}-day itinerary for {destination} with a total budget of ₹{total_budget}. 
             The traveler is a {companions.lower()} who prioritizes interests as follows: {interests_str}. 
@@ -7,10 +7,10 @@ def get_prompt_prefernce(num_days, destination, total_budget, companions, intere
             The overall pace should be {pace.lower()}, meaning {pace_definitions.get(pace, 'a balanced pace')}. 
 
             **Budget Allocation:**
-            - Accommodation: ₹{accom_budget}
-            - Activities: ₹{activity_budget}
-            - Dining: ₹{dining_budget}
-            - Transportation: ₹{transport_budget}
+            - Accommodation: ₹{total_budget}
+            - Activities: ₹{total_budget}
+            - Dining: ₹{total_budget}
+            - Transportation: ₹{total_budget}
 
             **Traveler Details:**
             - Special requests: {special_requests if special_requests else 'None'}
@@ -58,11 +58,10 @@ def get_prompt_prefernce(num_days, destination, total_budget, companions, intere
             - For {travel_month} in {destination}, expect average temperatures of X°C and [weather condition]. Pack accordingly!
     """
 
-def get_prompt_cost(destination, num_days, travel_month, companions, accom_budget, dining_budget, transport_budget, total_budget):
+def get_prompt_cost(destination, num_days, travel_month, companions, total_budget):
     return f"""
             Based on a trip to {destination} for {num_days} days in {travel_month} with {companions},
-            and a budget breakdown of accommodation={accom_budget} INR, dining={dining_budget} INR, 
-            transportation={transport_budget} INR (total budget={total_budget} INR),
+            and a total budget of ₹{total_budget} INR,
             provide detailed cost estimates in INR for accommodation, dining, and transportation.
             For accommodation, provide estimates for the following types: Hotel, Hostel, Vacation rental, Boutique hotel, and Eco-lodge.
             For dining, provide estimates for the following types: Street food, Casual dining, Fine dining, Local cuisine, and International cuisine.
