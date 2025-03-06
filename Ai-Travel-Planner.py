@@ -39,7 +39,6 @@ dining_guidance = {
 # Step 1: Travel Cost Estimator
 # -------------------------------
 st.title("Travel Planner")
-st.header("Step 1: Travel Cost Estimator")
 
 ## Trip Details Section
 st.subheader("Trip Details")
@@ -60,17 +59,9 @@ total_budget = st.number_input("Total budget", min_value=0.0, step=500.0)
 st.write(f"**Total Budget:** ₹{total_budget}")
 st.write("All costs will be estimated in INR.")
 
-if st.button("Get Cost Estimates"):
-    st.session_state.pop("estimates", None)  # Clear previous estimates
-    # Input validation
-    if not destination or not any(char.isalpha() for char in destination):
-        st.error("Please enter a valid destination.")
-    elif num_days < 1:
-        st.error("Number of days must be at least 1.")
-    elif total_budget <= 0:
-        st.error("Total budget must be greater than 0.")
-    else:
-        # Store inputs in session state
+# Automatically generate cost estimates after receiving inputs
+if destination and any(char.isalpha() for char in destination) and num_days >= 1 and total_budget > 0:
+    if 'cost_estimates_generated' not in st.session_state:
         st.session_state['destination'] = destination
         st.session_state['num_days'] = num_days
         st.session_state['travel_month'] = travel_month
@@ -105,6 +96,7 @@ if st.button("Get Cost Estimates"):
                         json_str = raw_response[json_start:json_end]
                         estimates_dict = json.loads(json_str)
                         st.session_state.estimates = estimates_dict
+                        st.session_state['cost_estimates_generated'] = True
                         st.success("Cost estimates generated and stored successfully!")
                     else:
                         st.error("No JSON object found in the response.")
@@ -116,7 +108,6 @@ if st.button("Get Cost Estimates"):
 # -------------------------------
 # Step 2: Itinerary Preferences
 # -------------------------------
-st.header("Step 2: Itinerary Preferences")
 st.subheader("Preferences")
 
 ## Interests
@@ -304,7 +295,6 @@ if st.button("Generate Itinerary"):
                     itinerary_md = re.sub(r'^Day (\d+):', r'## Day \1:', itinerary, flags=re.MULTILINE)
                     # Convert to HTML
                     html_body = markdown2.markdown(itinerary_md, extras=["fenced-code-blocks", "tables"])
-                    # Construct HTML with Google Fonts
                     # Construct HTML with Google Fonts and meta charset
                     html_content = f"""
                     <html>

@@ -7,3 +7,5 @@ pypdf<5.0.0,>=4.0.1
 protobuf<5.0.0dev,>=3.20.3
 geopy
 python-dotenv
+markdown2
+pdfkit
