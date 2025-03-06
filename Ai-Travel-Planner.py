@@ -3,6 +3,8 @@ import requests
 import json
 import re
 import urllib3
+import markdown2
+import pdfkit
 from prompt import get_prompt_preference, get_prompt_cost
 
 # Disable insecure HTTPS request warnings (short-term workaround)
@@ -39,7 +41,7 @@ dining_guidance = {
 st.title("Travel Planner")
 st.header("Step 1: Travel Cost Estimator")
 
-# Trip Details Section for cost estimation
+## Trip Details Section
 st.subheader("Trip Details")
 destination = st.text_input(
     "Destination",
@@ -52,15 +54,15 @@ travel_month = st.selectbox("Travel month", options=[
     "July", "August", "September", "October", "November", "December"
 ])
 
-# Budget Section for cost estimation
+## Budget Section
 st.subheader("Budget (INR)")
 total_budget = st.number_input("Total budget", min_value=0.0, step=500.0)
 st.write(f"**Total Budget:** ₹{total_budget}")
 st.write("All costs will be estimated in INR.")
 
 if st.button("Get Cost Estimates"):
-    st.session_state.pop("estimates", None)  # Clear previous estimates if any
-    # Validate inputs
+    st.session_state.pop("estimates", None)  # Clear previous estimates
+    # Input validation
     if not destination or not any(char.isalpha() for char in destination):
         st.error("Please enter a valid destination.")
     elif num_days < 1:
@@ -68,7 +70,7 @@ if st.button("Get Cost Estimates"):
     elif total_budget <= 0:
         st.error("Total budget must be greater than 0.")
     else:
-        # Save key inputs to session_state for later use
+        # Store inputs in session state
         st.session_state['destination'] = destination
         st.session_state['num_days'] = num_days
         st.session_state['travel_month'] = travel_month
@@ -79,7 +81,6 @@ if st.button("Get Cost Estimates"):
                 destination=destination,
                 num_days=num_days,
                 travel_month=travel_month,
-                companions=companions,
                 total_budget=total_budget
             )
             api_key = st.secrets["api_key"]
@@ -113,12 +114,12 @@ if st.button("Get Cost Estimates"):
                 st.error(f"Failed to fetch estimates. Status Code: {response.status_code}, Response: {response.text}")
 
 # -------------------------------
-# Step 2: Custom Itinerary Preferences
+# Step 2: Itinerary Preferences
 # -------------------------------
 st.header("Step 2: Itinerary Preferences")
 st.subheader("Preferences")
 
-# Interests preferences
+## Interests
 interests = st.multiselect(
     "Select your interests",
     options=["Art", "History", "Food", "Adventure", "Relaxation", "Culture", "Shopping"],
@@ -133,7 +134,7 @@ else:
     interests_str = ""
     st.error("Please select at least one interest.")
 
-# Travel companions for itinerary
+## Travel Companions
 companions_itinerary = st.radio("Travel companions", options=["Solo", "Couple", "Family", "Group"], key="itinerary_companions")
 child_ages = ""
 if companions_itinerary == "Family":
@@ -144,7 +145,7 @@ if companions_itinerary == "Family":
         key="itinerary_child_ages"
     )
 
-# Dynamic Accommodation Options (includes cost estimates)
+## Accommodation Options (Dynamic with Estimates)
 accommodation_options = []
 if "estimates" in st.session_state and "accommodation" in st.session_state.estimates:
     accom_estimates = st.session_state.estimates["accommodation"]
@@ -168,7 +169,7 @@ accommodation = st.selectbox(
     key="itinerary_accommodation"
 )
 
-# Dynamic Transportation Options (includes cost estimates)
+## Transportation Options (Dynamic with Estimates)
 transport_options = []
 if "estimates" in st.session_state and "transportation" in st.session_state.estimates:
     trans_estimates = st.session_state.estimates["transportation"]
@@ -191,10 +192,9 @@ transportation = st.selectbox(
     options=transport_options,
     key="itinerary_transportation"
 )
-# Normalize transportation key for guidance lookup (extract the part before the cost details)
-normalized_transport = transportation.split(" -")[0]
+normalized_transport = transportation.split(" -")[0]  # Normalize for guidance lookup
 
-# Dynamic Dining Options (includes cost estimates)
+## Dining Options (Dynamic with Estimates)
 dining_options = []
 if "estimates" in st.session_state and "dining" in st.session_state.estimates:
     dining_estimates = st.session_state.estimates["dining"]
@@ -218,10 +218,10 @@ dining = st.selectbox(
     key="itinerary_dining"
 )
 
-# Pace of travel
+## Pace of Travel
 pace = st.radio("Pace of travel", options=["Relaxed", "Moderate", "Packed"], key="itinerary_pace")
 
-# Special Requests and Additional Constraints
+## Special Requests and Constraints
 special_requests = st.text_area(
     "Any special requests or notes",
     placeholder="e.g., 'I prefer vegetarian options' or 'Need quiet areas'",
@@ -232,12 +232,12 @@ dietary_restrictions = st.text_input("Dietary restrictions (e.g., vegetarian, gl
 accessibility_needs = st.text_input("Accessibility needs (e.g., wheelchair access)", key="itinerary_accessibility")
 nationality = st.text_input("Nationality (for visa considerations)", value="Indian", key="itinerary_nationality")
 
-# Generate Itinerary Button for preferences only
+## Generate Itinerary
 if st.button("Generate Itinerary"):
     if not interests:
         st.error("Please select at least one interest.")
     else:
-        # Retrieve stored key details from the cost estimation phase
+        # Retrieve stored details from Step 1
         dest = st.session_state.get('destination', None)
         days = st.session_state.get('num_days', None)
         travel_month_value = st.session_state.get('travel_month', None)
@@ -247,7 +247,7 @@ if st.button("Generate Itinerary"):
             st.error("Missing key travel details from the first form. Please complete the cost estimation section first.")
         else:
             with st.spinner("Generating your personalized itinerary..."):
-                # Construct the prompt with complete details
+                # Construct prompt with all preferences
                 prompt = get_prompt_preference(
                     num_days=days,
                     destination=dest,
@@ -256,7 +256,7 @@ if st.button("Generate Itinerary"):
                     interests_str=interests_str,
                     child_ages=child_ages if companions_itinerary == 'Family' and child_ages else None,
                     accommodation=accommodation,
-                    transportation=normalized_transport,  # Use normalized key for guidance
+                    transportation=normalized_transport,
                     dining=dining,
                     pace=pace,
                     special_requests=special_requests,
@@ -278,32 +278,73 @@ if st.button("Generate Itinerary"):
                     "temperature": 1.0,
                 }
                 response = requests.post(
-                    "https://api.groq.com/openai/v1/chat/completions", 
-                    headers=headers, 
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers=headers,
                     json=data
                 )
                 if response.status_code == 200:
                     itinerary = response.json()["choices"][0]["message"]["content"]
                     st.subheader("Your Custom Itinerary")
-                    if not itinerary.startswith('Day'):
-                        first_section, *days = re.split(r'^Day \d+:', itinerary, flags=re.MULTILINE)
-                        if first_section.strip():
-                            st.markdown(first_section.strip())
+
+                    ### Display Itinerary with Day Expanders
+                    if not re.search(r'^Day \d+:', itinerary, flags=re.MULTILINE):
+                        st.markdown(itinerary)
                     else:
-                        days = re.split(r'^Day \d+:', itinerary, flags=re.MULTILINE)
-                    for day in days:
-                        if day.strip():
-                            lines = day.splitlines()
-                            day_header = lines[0].strip()
-                            day_content = "\n".join(lines[1:]).strip()
-                            with st.expander(f"Day {day_header}"):
+                        split_result = re.split(r'^(Day \d+):', itinerary, flags=re.MULTILINE)
+                        if split_result[0].strip():
+                            st.markdown(split_result[0].strip())
+                        for i in range(1, len(split_result), 2):
+                            day_header = split_result[i].strip()
+                            day_content = split_result[i+1].strip()
+                            with st.expander(day_header):
                                 st.markdown(day_content)
+
+                    ### Generate PDF
+                    # Preprocess for Markdown headers
+                    itinerary_md = re.sub(r'^Day (\d+):', r'## Day \1:', itinerary, flags=re.MULTILINE)
+                    # Convert to HTML
+                    html_body = markdown2.markdown(itinerary_md, extras=["fenced-code-blocks", "tables"])
+                    # Construct HTML with Google Fonts
+                    # Construct HTML with Google Fonts and meta charset
+                    html_content = f"""
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
+                        <style>
+                            body {{
+                                font-family: 'Open Sans', sans-serif;
+                            }}
+                            table {{
+                                width: 100%;
+                                border-collapse: collapse;
+                            }}
+                            th, td {{
+                                border: 1px solid #ddd;
+                                padding: 8px;
+                                text-align: left;
+                            }}
+                            th {{
+                                background-color: #f2f2f2;
+                            }}
+                        </style>
+                    </head>
+                    <body>
+                        {html_body}
+                    </body>
+                    </html>
+                    """
+
+                    # Generate PDF with encoding option
+                    pdf_output = pdfkit.from_string(html_content, False, options={'encoding': 'UTF-8'})
+
                     st.download_button(
-                        "Download Itinerary",
-                        itinerary,
-                        file_name="itinerary.md",
-                        mime="text/markdown"
+                        label="Download Itinerary as PDF",
+                        data=pdf_output,
+                        file_name="itinerary.pdf",
+                        mime="application/pdf"
                     )
+
                     st.warning(
                         "The generated itinerary is based on AI suggestions and may not reflect real-time availability or accuracy. "
                         "Please verify details before booking."
@@ -316,7 +357,7 @@ if st.button("Generate Itinerary"):
                     }
                     st.error(
                         error_messages.get(
-                            response.status_code, 
+                            response.status_code,
                             f"Failed to generate itinerary. Error {response.status_code}: {response.json().get('error', 'Unknown issue')}. "
                             "Try again or adjust your inputs."
                         )

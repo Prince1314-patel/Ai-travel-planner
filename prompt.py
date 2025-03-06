@@ -58,9 +58,9 @@ def get_prompt_preference(num_days, destination, total_budget, companions, inter
             - For {travel_month} in {destination}, expect average temperatures of X°C and [weather condition]. Pack accordingly!
     """
 
-def get_prompt_cost(destination, num_days, travel_month, companions, total_budget):
+def get_prompt_cost(destination, num_days, travel_month ,total_budget):
     return f"""
-            Based on a trip to {destination} for {num_days} days in {travel_month} with {companions},
+            Based on a trip to {destination} for {num_days} days in {travel_month},,
             and a total budget of ₹{total_budget} INR,
             provide detailed cost estimates in INR for accommodation, dining, and transportation.
             For accommodation, provide estimates for the following types: Hotel, Hostel, Vacation rental, Boutique hotel, and Eco-lodge.
