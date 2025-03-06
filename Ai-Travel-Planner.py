@@ -51,7 +51,6 @@ travel_month = st.selectbox("Travel month", options=[
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
 ])
-companions = st.radio("Travel companions", options=["Solo", "Couple", "Family", "Group"])
 
 # Budget Section for cost estimation
 st.subheader("Budget (INR)")
