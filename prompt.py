@@ -60,13 +60,15 @@ def get_prompt_preference(num_days, destination, total_budget, companions, inter
 
 def get_prompt_cost(destination, num_days, travel_month ,total_budget):
     return f"""
-            Based on a trip to {destination} for {num_days} days in {travel_month},,
-            and a total budget of ₹{total_budget} INR,
-            provide detailed cost estimates in INR for accommodation, dining, and transportation.
-            For accommodation, provide estimates for the following types: Hotel, Hostel, Vacation rental, Boutique hotel, and Eco-lodge.
-            For dining, provide estimates for the following types: Street food, Casual dining, Fine dining, Local cuisine, and International cuisine.
-            For transportation, provide estimates for the following types: Taxi, Public transit, and Car rental.
-            Provide average cost ranges rather than absolute values.
+            Based on a trip to {destination} for {num_days} days in {travel_month}, with a total budget of ₹{total_budget} INR, provide a detailed breakdown of estimated costs for accommodation, dining, and transportation.
+
+            Requirements:
+            - Provide cost estimates in INR (Indian Rupees) using average cost ranges rather than absolute values.
+            - Structure the response as a JSON object with the following categories:
+                - Accommodation: Include cost estimates for Hotel, Hostel, Vacation rental, Boutique hotel, and Eco-lodge (cost per night).
+                - Dining: Include cost estimates for Street food, Casual dining, Fine dining, Local cuisine, and International cuisine (cost per meal).
+                - Transportation: Include cost estimates for Taxi, Public transit, and Car rental (cost per km, per trip, or per day as applicable).
+            - Ensure that 'cost' values are numeric (in INR) and 'unit' values are strings.
             Respond with a JSON object having the structure:
             {{
                 "accommodation": {{
@@ -90,4 +92,4 @@ def get_prompt_cost(destination, num_days, travel_month ,total_budget):
                 }}
             }}
             Ensure 'cost' values are numeric (in INR) and 'unit' values are strings.
-    """
+            """
