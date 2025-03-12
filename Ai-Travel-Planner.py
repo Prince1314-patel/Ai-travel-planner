@@ -10,6 +10,19 @@ from prompt import get_prompt_preference, get_prompt_cost
 # Disable insecure HTTPS request warnings (short-term workaround)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Set background image
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-image: url("https://img.freepik.com/free-photo/abstract-luxury-soft-red-background-christmas-valentines-layout-design-studio-room-web-template-business-report-with-smooth-circle-gradient-color_1258-63949.jpg?t=st=1741764479~exp=1741768079~hmac=0fc1a9cb3fdd74202cdec1f891a55e27a589ec0941bf8540875b9a04659e9d15&w=1480");
+        background-size: cover;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # Predefined dictionaries for additional prompt guidance
 pace_definitions = {
     "Relaxed": "a leisurely pace with ample downtime",
