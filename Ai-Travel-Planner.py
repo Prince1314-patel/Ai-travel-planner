@@ -77,7 +77,7 @@ if destination and any(char.isalpha() for char in destination) and num_days >= 1
             api_key = st.secrets["api_key"]
             headers = {"Authorization": f"Bearer {api_key}"}
             data = {
-                "model": "qwen-2.5-32b",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 1.0,
             }
