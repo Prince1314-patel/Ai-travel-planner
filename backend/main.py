@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import threading
+import time
 import uuid
 from typing import Callable, Optional
 
@@ -20,6 +21,7 @@ from prompts import get_prompt_cost, get_prompt_preference
 from search import gather_price_context
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("wandor.main")
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -218,6 +220,7 @@ class ItineraryPdfRequest(BaseModel):
 
 @app.post("/api/itinerary/pdf")
 def itinerary_pdf(payload: ItineraryPdfRequest):
+    start = time.monotonic()
     html_body = markdown2.markdown(
         payload.itinerary_markdown, extras=["fenced-code-blocks", "tables"]
     )
@@ -245,6 +248,12 @@ def itinerary_pdf(payload: ItineraryPdfRequest):
             status_code=500,
             detail="PDF generation failed — is wkhtmltopdf installed on this host?",
         ) from exc
+
+    elapsed = time.monotonic() - start
+    logger.info(
+        "PDF generated in %.2fs (%d chars of markdown in, %d bytes out)",
+        elapsed, len(payload.itinerary_markdown), len(pdf_bytes),
+    )
 
     return Response(
         content=pdf_bytes,

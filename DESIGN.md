@@ -152,6 +152,14 @@ Everything rounds toward a pill: buttons and inputs are `rounded-full`, cards us
 - **Panel:** white background, `1px` neutral border, `16px` radius (a smaller, list-appropriate radius than the `44px` card radius), the same soft shadow value as an elevated card (`0 0 4px rgba(0,0,0,0.15)`); width matches the trigger but can grow up to `320px` so longer option text (e.g. cost ranges) doesn't wrap unnecessarily.
 - **Options:** hovered/keyboard-highlighted option gets a quiet `black/[0.04]` background (neutral, not terracotta — fills stay off-limits). The selected option is marked by terracotta text plus a small terracotta check icon, never a filled row.
 
+### Loading / progress (long waits only)
+- **Why:** the cost-estimate call is always 10+ seconds (often 20s–130s+: 13 real parallel price searches, then a streamed LLM call) — per Nielsen's response-time thresholds, anything past 10s needs a determinate indicator and status text, not a bare spinner. A purely time-based/simulated progress animation would be actively dishonest here given how variable the latency is; every number shown is real backend state.
+- **Bar:** `2px` tall, full pill (`rounded-full`), track `black/[0.06]`, fill `bg-wandor-dark` (no terracotta — a functional fill stays in the neutral system, terracotta remains text/border-only per the Narrow Terracotta Rule). Fill width transitions smoothly (`duration-500 ease-out`) so real-data jumps still read as motion, not a snap.
+- **Two real, distinct progress signals, never faked:**
+  - **Searching phase:** determinate `resolved / 13` — the frontend polls a backend job and shows literally how many of the 13 real price searches have resolved ("Finding real prices for {destination} — N of 13 sources checked").
+  - **Generating phase:** the LLM response is streamed (SSE) from the backend; the bar shows a real character count against an expected-length estimate, capped at 96% so it only ever reaches 100% on true completion, never before ("Compiling your personalized estimate — N characters written"). Note some models/providers buffer their stream rather than emitting smooth token-by-token deltas — the count is still always real, just not guaranteed to climb steadily.
+- **Named Rule: The Real-Progress Rule.** Never simulate a progress indicator for a wait this long or this variable. If the backend can report real state, surface that; if it can't yet, that's a backend gap to close, not a license to fake the frontend.
+
 ### Navigation
 - Logo (Special Elite, 40px/32px) far left; center-absolute nav links (Discover / Pricing / FAQs) hidden below 760px; Login (ghost) + Plan My Trip (primary pill) on the right, Login hidden below 760px.
 
@@ -168,3 +176,4 @@ Everything rounds toward a pill: buttons and inputs are `rounded-full`, cards us
 - **Don't** fill a button, background, or large surface with terracotta.
 - **Don't** add a second accent color to the flow pages "for variety" — the palette stays this narrow on purpose.
 - **Don't** stack a drop shadow under a blurred glass card; blur is the depth cue.
+- **Don't** simulate/fake a progress indicator for a long or variable-latency wait — surface the backend's real state instead (see the Real-Progress Rule).

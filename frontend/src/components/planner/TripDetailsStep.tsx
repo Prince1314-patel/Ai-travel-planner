@@ -115,9 +115,12 @@ export default function TripDetailsStep() {
         {loading && progress && (
           <div className="mt-6">
             <ProgressBar
-              value={progress.resolved}
-              max={progress.total}
-              indeterminate={progress.status === 'generating'}
+              value={
+                progress.status === 'generating'
+                  ? generationPercent(progress.generated_chars)
+                  : progress.resolved
+              }
+              max={progress.status === 'generating' ? 100 : progress.total}
             />
             <p className="mt-2.5 text-[13px] text-[#5c5c5c]">
               {progressLabel(progress, plan.destination)}
