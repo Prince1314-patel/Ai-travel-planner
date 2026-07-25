@@ -14,3 +14,6 @@ frontend/.vite
 backend/__pycache__
 backend/.venv
 **/__pycache__
+
+# Development / planning docs (specs, plans, brainstorming artifacts)
+docs/superpowers/
