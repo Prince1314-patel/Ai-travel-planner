@@ -113,8 +113,40 @@ export interface ItineraryRequest {
   nationality: string
 }
 
-export function fetchItinerary(params: ItineraryRequest) {
-  return request<{ itinerary: string }>('/api/itinerary', params)
+export interface ItineraryProgress {
+  status: 'generating' | 'done' | 'error'
+  generated_chars: number
+  result: { itinerary: string } | null
+  error: string | null
+}
+
+/**
+ * Starts an itinerary-generation job (a single, often 10s-100s+ LLM call whose
+ * length scales with the number of days requested) and polls its real progress
+ * until it resolves. `onProgress` fires on every poll tick with the real
+ * character count streamed so far — the wait is too long and variable for a
+ * simulated/fake progress bar to stay honest.
+ */
+export async function pollItinerary(
+  params: ItineraryRequest,
+  onProgress: (progress: ItineraryProgress) => void,
+  pollIntervalMs = 900,
+): Promise<{ itinerary: string }> {
+  const { job_id } = await request<{ job_id: string }>('/api/itinerary/start', params)
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const progress = await requestGet<ItineraryProgress>(`/api/itinerary/status/${job_id}`)
+    onProgress(progress)
+
+    if (progress.status === 'done' && progress.result) {
+      return progress.result
+    }
+    if (progress.status === 'error') {
+      throw new ApiError(502, progress.error ?? 'Itinerary generation failed.')
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+  }
 }
 
 export async function fetchItineraryPdf(itinerary_markdown: string): Promise<Blob> {

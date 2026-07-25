@@ -5,6 +5,7 @@ import { PillInput, PillTextarea } from '@/components/ui/PillField'
 import Select from '@/components/ui/Select'
 import PillRadioGroup from '@/components/ui/PillRadioGroup'
 import InterestPicker from '@/components/ui/InterestPicker'
+import ProgressBar from '@/components/ui/ProgressBar'
 import {
   usePlan,
   FALLBACK_ACCOMMODATION,
@@ -12,9 +13,21 @@ import {
   FALLBACK_DINING,
   PACE_OPTIONS,
 } from '@/lib/planContext'
-import { fetchItinerary, ApiError, type CostEstimates } from '@/lib/api'
+import { pollItinerary, ApiError, type CostEstimates, type ItineraryProgress } from '@/lib/api'
 
 const COMPANION_OPTIONS = ['Solo', 'Couple', 'Family', 'Group'] as const
+
+// Output length scales with the number of days requested (each day gets its
+// own morning/afternoon/evening breakdown), so the expected total scales too.
+// The LLM doesn't know its own final length in advance, so this can't be a
+// true 0-100% — capped short of full so the bar never claims "done" before
+// the stream actually ends.
+const CHARS_PER_DAY = 900
+const BASE_OVERHEAD_CHARS = 600
+function generationPercent(generatedChars: number, numDays: number) {
+  const expected = numDays * CHARS_PER_DAY + BASE_OVERHEAD_CHARS
+  return Math.min(96, Math.round((generatedChars / expected) * 100))
+}
 
 function dynamicOptions(
   estimates: CostEstimates | null,
@@ -31,8 +44,9 @@ function dynamicOptions(
 
 export default function PreferencesStep() {
   const { plan, update } = usePlan()
-  const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<ItineraryProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const loading = progress !== null && progress.status !== 'done' && progress.status !== 'error'
 
   const accommodationOptions = dynamicOptions(plan.costEstimates, 'accommodation', FALLBACK_ACCOMMODATION)
   const transportationOptions = dynamicOptions(plan.costEstimates, 'transportation', FALLBACK_TRANSPORTATION)
@@ -55,35 +69,38 @@ export default function PreferencesStep() {
 
   const handleGenerate = async () => {
     setError(null)
-    setLoading(true)
+    setProgress({ status: 'generating', generated_chars: 0, result: null, error: null })
     try {
       const interestsStr = plan.interests
         .map((i) => `${i.interest} (rated ${i.rating}/5)`)
         .join(', ')
       const normalize = (value: string) => value.split(' -')[0]
 
-      const { itinerary } = await fetchItinerary({
-        destination: plan.destination,
-        num_days: plan.numDays,
-        total_budget: plan.totalBudget,
-        travel_month: plan.travelMonth,
-        companions: plan.companions,
-        child_ages: plan.companions === 'Family' && plan.childAges ? plan.childAges : null,
-        interests_str: interestsStr,
-        accommodation: normalize(plan.accommodation),
-        transportation: normalize(plan.transportation),
-        dining: normalize(plan.dining),
-        pace: plan.pace,
-        special_requests: plan.specialRequests,
-        dietary_restrictions: plan.dietaryRestrictions,
-        accessibility_needs: plan.accessibilityNeeds,
-        nationality: plan.nationality,
-      })
+      const { itinerary } = await pollItinerary(
+        {
+          destination: plan.destination,
+          num_days: plan.numDays,
+          total_budget: plan.totalBudget,
+          travel_month: plan.travelMonth,
+          companions: plan.companions,
+          child_ages: plan.companions === 'Family' && plan.childAges ? plan.childAges : null,
+          interests_str: interestsStr,
+          accommodation: normalize(plan.accommodation),
+          transportation: normalize(plan.transportation),
+          dining: normalize(plan.dining),
+          pace: plan.pace,
+          special_requests: plan.specialRequests,
+          dietary_restrictions: plan.dietaryRestrictions,
+          accessibility_needs: plan.accessibilityNeeds,
+          nationality: plan.nationality,
+        },
+        setProgress,
+      )
       update({ itinerary, step: 'results' })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
     } finally {
-      setLoading(false)
+      setProgress(null)
     }
   }
 
@@ -175,6 +192,16 @@ export default function PreferencesStep() {
 
       {!canSubmit && (
         <p className="mt-6 text-[13px] text-[#5c5c5c]">Select at least one interest to continue.</p>
+      )}
+      {loading && progress && (
+        <div className="mt-6">
+          <ProgressBar value={generationPercent(progress.generated_chars, plan.numDays)} max={100} />
+          <p className="mt-2.5 text-[13px] text-[#5c5c5c]">
+            {progress.generated_chars > 0
+              ? `Writing your ${plan.numDays}-day itinerary — ${progress.generated_chars.toLocaleString()} characters written`
+              : 'Writing your itinerary…'}
+          </p>
+        </div>
       )}
       {error && (
         <p className="mt-5 text-[14px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">

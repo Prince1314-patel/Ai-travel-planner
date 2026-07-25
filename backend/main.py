@@ -80,7 +80,12 @@ def call_llm(prompt: str, on_chunk: Optional[Callable[[str], None]] = None) -> s
         return response.json()["choices"][0]["message"]["content"]
 
     full_text = ""
-    for line in response.iter_lines(decode_unicode=True):
+    for raw_line in response.iter_lines():
+        # Decode bytes ourselves as UTF-8 — `decode_unicode=True` relies on
+        # `response.encoding`, which requests can't infer from an SSE stream
+        # (no charset in `text/event-stream`) and falls back to guessing,
+        # corrupting multi-byte characters like ₹ and °.
+        line = raw_line.decode("utf-8") if raw_line else ""
         if not line or not line.startswith("data: "):
             continue
         data = line[len("data: "):]
@@ -192,26 +197,64 @@ class ItineraryRequest(BaseModel):
     nationality: str = ""
 
 
-@app.post("/api/itinerary")
-def itinerary(payload: ItineraryRequest):
-    prompt = get_prompt_preference(
-        num_days=payload.num_days,
-        destination=payload.destination,
-        total_budget=payload.total_budget,
-        companions=payload.companions,
-        interests_str=payload.interests_str,
-        child_ages=payload.child_ages,
-        accommodation=payload.accommodation,
-        transportation=payload.transportation,
-        dining=payload.dining,
-        pace=payload.pace,
-        special_requests=payload.special_requests,
-        dietary_restrictions=payload.dietary_restrictions,
-        accessibility_needs=payload.accessibility_needs,
-        nationality=payload.nationality,
-        travel_month=payload.travel_month,
-    )
-    return {"itinerary": call_llm(prompt)}
+# In-memory job store, same pattern as COST_ESTIMATE_JOBS above.
+ITINERARY_JOBS: dict[str, dict] = {}
+
+
+def _run_itinerary_job(job_id: str, payload: ItineraryRequest) -> None:
+    job = ITINERARY_JOBS[job_id]
+    try:
+        prompt = get_prompt_preference(
+            num_days=payload.num_days,
+            destination=payload.destination,
+            total_budget=payload.total_budget,
+            companions=payload.companions,
+            interests_str=payload.interests_str,
+            child_ages=payload.child_ages,
+            accommodation=payload.accommodation,
+            transportation=payload.transportation,
+            dining=payload.dining,
+            pace=payload.pace,
+            special_requests=payload.special_requests,
+            dietary_restrictions=payload.dietary_restrictions,
+            accessibility_needs=payload.accessibility_needs,
+            nationality=payload.nationality,
+            travel_month=payload.travel_month,
+        )
+
+        def on_chunk(accumulated_text: str) -> None:
+            job["generated_chars"] = len(accumulated_text)
+
+        itinerary_text = call_llm(prompt, on_chunk=on_chunk)
+        job["result"] = {"itinerary": itinerary_text}
+        job["status"] = "done"
+    except HTTPException as exc:
+        job["status"] = "error"
+        job["error"] = str(exc.detail)
+    except Exception as exc:  # last-resort guard so a bug never leaves a job hung
+        job["status"] = "error"
+        job["error"] = f"Unexpected error: {exc}"
+
+
+@app.post("/api/itinerary/start")
+def start_itinerary(payload: ItineraryRequest):
+    job_id = str(uuid.uuid4())
+    ITINERARY_JOBS[job_id] = {
+        "status": "generating",
+        "generated_chars": 0,
+        "result": None,
+        "error": None,
+    }
+    threading.Thread(target=_run_itinerary_job, args=(job_id, payload), daemon=True).start()
+    return {"job_id": job_id}
+
+
+@app.get("/api/itinerary/status/{job_id}")
+def itinerary_status(job_id: str):
+    job = ITINERARY_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    return job
 
 
 class ItineraryPdfRequest(BaseModel):
