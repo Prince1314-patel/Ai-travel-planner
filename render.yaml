@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: wandor-backend
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /docs
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://wandor-frontend.onrender.com
+
+  - type: web
+    name: wandor-frontend
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://wandor-backend.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
