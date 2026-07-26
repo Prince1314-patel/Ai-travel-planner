@@ -6,11 +6,12 @@ import QuickReplyGroup from '@/components/chat/QuickReplyGroup'
 import InterestPickerMessage from '@/components/chat/InterestPickerMessage'
 import PricingProgressBubble from '@/components/chat/PricingProgressBubble'
 import OptionalWrapupBubble from '@/components/chat/OptionalWrapupBubble'
+import ItineraryBubble from '@/components/chat/ItineraryBubble'
 import type { CostEstimates } from '@/lib/api'
 import { useChatConversation } from '@/lib/useChatConversation'
 
 export default function Landing() {
-  const { sessionId, entries, latest, sending, error, begin, send, choose } = useChatConversation()
+  const { sessionId, entries, latest, sending, error, begin, send, choose, reset } = useChatConversation()
   const [draft, setDraft] = useState('')
   const [costEstimates, setCostEstimates] = useState<CostEstimates | null>(null)
   const started = sessionId !== null
@@ -62,6 +63,16 @@ export default function Landing() {
             costEstimates={costEstimates}
             disabled={sending}
             onSubmit={(values) => choose('wrapup_submit', values, 'Generate my itinerary')}
+          />
+        )}
+        {latest?.widget === 'done' && latest.itinerary_job_id && (
+          <ItineraryBubble
+            jobId={latest.itinerary_job_id}
+            destination={latest.state.destination}
+            numDays={latest.state.num_days}
+            travelMonth={latest.state.travel_month}
+            totalBudget={latest.state.total_budget}
+            onReset={reset}
           />
         )}
         {error && <p className="text-[14px] text-red-700">{error}</p>}

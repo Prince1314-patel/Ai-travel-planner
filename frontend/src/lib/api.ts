@@ -134,16 +134,14 @@ export interface ItineraryProgress {
  * character count streamed so far — the wait is too long and variable for a
  * simulated/fake progress bar to stay honest.
  */
-export async function pollItinerary(
-  params: ItineraryRequest,
+export async function pollItineraryByJobId(
+  jobId: string,
   onProgress: (progress: ItineraryProgress) => void,
   pollIntervalMs = 900,
 ): Promise<{ itinerary: string }> {
-  const { job_id } = await request<{ job_id: string }>('/api/itinerary/start', params)
-
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const progress = await requestGet<ItineraryProgress>(`/api/itinerary/status/${job_id}`)
+    const progress = await requestGet<ItineraryProgress>(`/api/itinerary/status/${jobId}`)
     onProgress(progress)
 
     if (progress.status === 'done' && progress.result) {
@@ -154,6 +152,15 @@ export async function pollItinerary(
     }
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
   }
+}
+
+export async function pollItinerary(
+  params: ItineraryRequest,
+  onProgress: (progress: ItineraryProgress) => void,
+  pollIntervalMs = 900,
+): Promise<{ itinerary: string }> {
+  const { job_id } = await request<{ job_id: string }>('/api/itinerary/start', params)
+  return pollItineraryByJobId(job_id, onProgress, pollIntervalMs)
 }
 
 export async function fetchItineraryPdf(itinerary_markdown: string): Promise<Blob> {
