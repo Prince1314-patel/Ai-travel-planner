@@ -20,6 +20,18 @@ from pydantic import BaseModel
 from prompts import get_prompt_cost, get_prompt_preference
 from search import gather_price_context
 from jsonutil import extract_json_object
+from chat import (
+    FIELD_WIDGET,
+    QUICK_REPLY_OPTIONS,
+    apply_extracted_fields,
+    canned_ack,
+    canned_question,
+    create_session,
+    get_session,
+    has_pricing_inputs,
+    next_missing_field,
+    run_chat_turn,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("wandor.main")
@@ -153,8 +165,7 @@ def _run_cost_estimate_job(job_id: str, payload: CostEstimateRequest) -> None:
         job["error"] = f"Unexpected error: {exc}"
 
 
-@app.post("/api/cost-estimate/start")
-def start_cost_estimate(payload: CostEstimateRequest):
+def start_cost_estimate_job(payload: CostEstimateRequest) -> str:
     job_id = str(uuid.uuid4())
     COST_ESTIMATE_JOBS[job_id] = {
         "status": "searching",
@@ -165,7 +176,12 @@ def start_cost_estimate(payload: CostEstimateRequest):
         "error": None,
     }
     threading.Thread(target=_run_cost_estimate_job, args=(job_id, payload), daemon=True).start()
-    return {"job_id": job_id}
+    return job_id
+
+
+@app.post("/api/cost-estimate/start")
+def start_cost_estimate(payload: CostEstimateRequest):
+    return {"job_id": start_cost_estimate_job(payload)}
 
 
 @app.get("/api/cost-estimate/status/{job_id}")
@@ -233,8 +249,7 @@ def _run_itinerary_job(job_id: str, payload: ItineraryRequest) -> None:
         job["error"] = f"Unexpected error: {exc}"
 
 
-@app.post("/api/itinerary/start")
-def start_itinerary(payload: ItineraryRequest):
+def start_itinerary_job(payload: ItineraryRequest) -> str:
     job_id = str(uuid.uuid4())
     ITINERARY_JOBS[job_id] = {
         "status": "generating",
@@ -243,7 +258,12 @@ def start_itinerary(payload: ItineraryRequest):
         "error": None,
     }
     threading.Thread(target=_run_itinerary_job, args=(job_id, payload), daemon=True).start()
-    return {"job_id": job_id}
+    return job_id
+
+
+@app.post("/api/itinerary/start")
+def start_itinerary(payload: ItineraryRequest):
+    return {"job_id": start_itinerary_job(payload)}
 
 
 @app.get("/api/itinerary/status/{job_id}")
@@ -252,6 +272,167 @@ def itinerary_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
     return job
+
+
+class ChatStartRequest(BaseModel):
+    seed_text: Optional[str] = None
+
+
+class ChatMessageRequest(BaseModel):
+    text: Optional[str] = None
+    structured_field: Optional[str] = None
+    structured_value: Optional[object] = None
+
+
+class ChatTurnResponse(BaseModel):
+    session_id: str
+    message: str
+    field: Optional[str]
+    widget: str
+    options: Optional[list[str]] = None
+    pricing_job_id: Optional[str] = None
+    itinerary_job_id: Optional[str] = None
+    state: dict
+    phase: str
+
+
+def _run_chat_turn_safely(session) -> str:
+    try:
+        return run_chat_turn(session, call_llm)
+    except Exception:
+        logger.exception("Chat turn LLM call failed; falling back to a canned question.")
+        fallback_field = next_missing_field(session.state)
+        return canned_question(fallback_field) if fallback_field else "Sorry, something went wrong — could you try again?"
+
+
+def _maybe_start_pricing(session) -> None:
+    if session.pricing_job_id is None and has_pricing_inputs(session.state):
+        session.pricing_job_id = start_cost_estimate_job(
+            CostEstimateRequest(
+                destination=session.state["destination"],
+                num_days=session.state["num_days"],
+                travel_month=session.state["travel_month"],
+                total_budget=session.state["total_budget"],
+            )
+        )
+
+
+def _build_chat_response(session_id: str, session, message: str) -> ChatTurnResponse:
+    next_field = next_missing_field(session.state)
+    if next_field is not None:
+        session.phase = "collecting"
+        widget = FIELD_WIDGET[next_field]
+        options = QUICK_REPLY_OPTIONS.get(next_field)
+    elif session.itinerary_job_id is not None:
+        session.phase = "generating"
+        widget = "done"
+        options = None
+    else:
+        session.phase = "optional_wrapup"
+        widget = "optional_wrapup"
+        options = None
+
+    return ChatTurnResponse(
+        session_id=session_id,
+        message=message,
+        field=next_field,
+        widget=widget,
+        options=options,
+        pricing_job_id=session.pricing_job_id,
+        itinerary_job_id=session.itinerary_job_id,
+        state=dict(session.state),
+        phase=session.phase,
+    )
+
+
+def _start_itinerary_from_state(session) -> str:
+    return start_itinerary_job(
+        ItineraryRequest(
+            destination=session.state["destination"],
+            num_days=session.state["num_days"],
+            total_budget=session.state["total_budget"],
+            travel_month=session.state["travel_month"],
+            companions=session.state["companions"],
+            child_ages=session.state.get("child_ages") or None,
+            interests_str=", ".join(
+                f"{i['interest']} (rated {i['rating']}/5)" for i in session.state["interests"]
+            ),
+            accommodation=session.state.get("accommodation") or "No preference",
+            transportation=session.state.get("transportation") or "No preference",
+            dining=session.state.get("dining") or "No preference",
+            pace=session.state["pace"],
+            special_requests=session.state.get("special_requests", ""),
+            dietary_restrictions=session.state.get("dietary_restrictions", ""),
+            accessibility_needs=session.state.get("accessibility_needs", ""),
+            nationality=session.state.get("nationality", ""),
+        )
+    )
+
+
+@app.post("/api/chat/start", response_model=ChatTurnResponse)
+def chat_start(payload: ChatStartRequest):
+    session_id, session = create_session()
+
+    if payload.seed_text and payload.seed_text.strip():
+        session.messages.append({"role": "user", "content": payload.seed_text.strip()})
+        reply = _run_chat_turn_safely(session)
+        session.messages.append({"role": "assistant", "content": reply})
+        _maybe_start_pricing(session)
+        return _build_chat_response(session_id, session, reply)
+
+    opening = canned_question("destination")
+    session.messages.append({"role": "assistant", "content": opening})
+    return _build_chat_response(session_id, session, opening)
+
+
+@app.post("/api/chat/{session_id}/message", response_model=ChatTurnResponse)
+def chat_message(session_id: str, payload: ChatMessageRequest):
+    session = get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Chat session not found.")
+
+    if payload.structured_field:
+        field = payload.structured_field
+        value = payload.structured_value
+        session.messages.append(
+            {"role": "user", "content": value if isinstance(value, str) else json.dumps(value)}
+        )
+        if field == "wrapup_submit":
+            session.state = apply_extracted_fields(
+                session.state, value if isinstance(value, dict) else {}
+            )
+            message = "Perfect — let me put your itinerary together."
+        else:
+            session.state = apply_extracted_fields(session.state, {field: value})
+            message = canned_ack(field, value)
+    elif payload.text and payload.text.strip():
+        session.messages.append({"role": "user", "content": payload.text.strip()})
+        message = _run_chat_turn_safely(session)
+    else:
+        raise HTTPException(
+            status_code=400, detail="Provide either text or a structured_field/structured_value."
+        )
+
+    session.messages.append({"role": "assistant", "content": message})
+    _maybe_start_pricing(session)
+
+    # `session.phase` here reflects the value `_build_chat_response` left it at
+    # on the *previous* turn — the frontend only ever sends "wrapup_submit"
+    # after it already received widget == "optional_wrapup", so this check
+    # is reading last turn's outcome, not this turn's (not yet computed).
+    if session.phase == "optional_wrapup" and payload.structured_field == "wrapup_submit":
+        session.itinerary_job_id = _start_itinerary_from_state(session)
+
+    return _build_chat_response(session_id, session, message)
+
+
+@app.get("/api/chat/{session_id}", response_model=ChatTurnResponse)
+def chat_get(session_id: str):
+    session = get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Chat session not found.")
+    last_message = session.messages[-1]["content"] if session.messages else ""
+    return _build_chat_response(session_id, session, last_message)
 
 
 class ItineraryPdfRequest(BaseModel):
