@@ -17,3 +17,4 @@ backend/.venv
 
 # Development / planning docs (specs, plans, brainstorming artifacts)
 docs/superpowers/
+.superpowers/
