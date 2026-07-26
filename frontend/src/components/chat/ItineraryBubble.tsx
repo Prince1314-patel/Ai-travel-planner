@@ -70,14 +70,15 @@ export default function ItineraryBubble({
 }) {
   const [progress, setProgress] = useState<ItineraryProgress | null>(null)
   const [itinerary, setItinerary] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [pollError, setPollError] = useState<string | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     pollItineraryByJobId(jobId, (p) => !cancelled && setProgress(p))
       .then((result) => !cancelled && setItinerary(result.itinerary))
-      .catch((err) => !cancelled && setError(err instanceof ApiError ? err.message : 'Something went wrong.'))
+      .catch((err) => !cancelled && setPollError(err instanceof ApiError ? err.message : 'Something went wrong.'))
     return () => {
       cancelled = true
     }
@@ -87,6 +88,7 @@ export default function ItineraryBubble({
   const handleDownload = async () => {
     if (!itinerary) return
     setDownloading(true)
+    setDownloadError(null)
     try {
       const blob = await fetchItineraryPdf(itinerary)
       const url = URL.createObjectURL(blob)
@@ -96,14 +98,14 @@ export default function ItineraryBubble({
       link.click()
       URL.revokeObjectURL(url)
     } catch {
-      setError('Could not generate the PDF. Please try again.')
+      setDownloadError('Could not generate the PDF. Please try again.')
     } finally {
       setDownloading(false)
     }
   }
 
-  if (error) {
-    return <p className="text-[14px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">{error}</p>
+  if (pollError) {
+    return <p className="text-[14px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">{pollError}</p>
   }
 
   if (!itinerary) {
@@ -137,6 +139,10 @@ export default function ItineraryBubble({
           </span>
         </PillButton>
       </div>
+
+      {downloadError && (
+        <p className="text-[14px] text-red-700 bg-red-50 border border-red-200 rounded-2xl px-4 py-3">{downloadError}</p>
+      )}
 
       {intro && (
         <Card className="px-7 py-6 prose prose-wandor prose-sm max-w-none">
