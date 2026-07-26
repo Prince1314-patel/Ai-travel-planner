@@ -19,13 +19,14 @@ from pydantic import BaseModel
 
 from prompts import get_prompt_cost, get_prompt_preference
 from search import gather_price_context
+from jsonutil import extract_json_object
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("wandor.main")
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-OPENROUTER_MODEL = "inclusionai/ling-3.0-flash:free"
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "inclusionai/ling-3.0-flash:free")
 
 ALLOWED_ORIGINS = [
     origin.strip()
@@ -139,11 +140,7 @@ def _run_cost_estimate_job(job_id: str, payload: CostEstimateRequest) -> None:
         )
         raw_response = call_llm(prompt, on_chunk=on_chunk)
 
-        json_start = raw_response.find("{")
-        json_end = raw_response.rfind("}") + 1
-        if json_start == -1 or json_end == -1:
-            raise ValueError("No JSON object found in the model response.")
-        job["result"] = json.loads(raw_response[json_start:json_end])
+        job["result"] = extract_json_object(raw_response)
         job["status"] = "done"
     except HTTPException as exc:
         job["status"] = "error"
