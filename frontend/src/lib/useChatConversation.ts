@@ -35,6 +35,7 @@ export function useChatConversation() {
   }, [])
 
   const begin = async (seedText: string) => {
+    if (sending) return
     setSending(true)
     setError(null)
     if (seedText.trim()) {

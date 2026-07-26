@@ -17,7 +17,7 @@ export default function Landing() {
   }
 
   if (!started) {
-    return <Hero onSubmit={begin} />
+    return <Hero onSubmit={begin} disabled={sending} />
   }
 
   return (

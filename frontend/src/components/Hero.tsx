@@ -27,7 +27,13 @@ function NavButton({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function Hero({ onSubmit }: { onSubmit: (text: string) => void }) {
+export default function Hero({
+  onSubmit,
+  disabled,
+}: {
+  onSubmit: (text: string) => void
+  disabled?: boolean
+}) {
   const [text, setText] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -72,7 +78,8 @@ export default function Hero({ onSubmit }: { onSubmit: (text: string) => void })
             <button
               type="button"
               onClick={() => onSubmit(text)}
-              className="bg-wandor-dark text-[#fafafa] border-none cursor-pointer font-sans text-[15px] font-medium uppercase tracking-[0.04em] px-5 py-3.5 rounded-full transition-all hover:bg-[#333] active:scale-95"
+              disabled={disabled}
+              className="bg-wandor-dark text-[#fafafa] border-none cursor-pointer font-sans text-[15px] font-medium uppercase tracking-[0.04em] px-5 py-3.5 rounded-full transition-all hover:bg-[#333] active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
             >
               Plan My Trip
             </button>
@@ -115,7 +122,8 @@ export default function Hero({ onSubmit }: { onSubmit: (text: string) => void })
             <button
               type="button"
               onClick={() => onSubmit(text)}
-              className="absolute bottom-[21px] right-[21px] w-[156px] h-14 bg-black border-none rounded-[44px] shadow-[0_0_2px_0_rgba(0,0,0,0.05)] cursor-pointer flex items-center justify-center font-sans text-base font-medium text-[#fafafa] uppercase tracking-[0.02em] transition-all hover:bg-[#333] active:scale-95"
+              disabled={disabled}
+              className="absolute bottom-[21px] right-[21px] w-[156px] h-14 bg-black border-none rounded-[44px] shadow-[0_0_2px_0_rgba(0,0,0,0.05)] cursor-pointer flex items-center justify-center font-sans text-base font-medium text-[#fafafa] uppercase tracking-[0.02em] transition-all hover:bg-[#333] active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
             >
               Plan My Trip
             </button>
