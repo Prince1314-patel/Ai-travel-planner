@@ -73,16 +73,14 @@ export interface CostEstimateParams {
  * "N of 13 prices found" status — the wait is too long and too variable for a
  * simulated/fake progress bar to stay honest.
  */
-export async function pollCostEstimate(
-  params: CostEstimateParams,
+export async function pollCostEstimateByJobId(
+  jobId: string,
   onProgress: (progress: CostEstimateProgress) => void,
   pollIntervalMs = 900,
 ): Promise<CostEstimates> {
-  const { job_id } = await request<{ job_id: string }>('/api/cost-estimate/start', params)
-
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const progress = await requestGet<CostEstimateProgress>(`/api/cost-estimate/status/${job_id}`)
+    const progress = await requestGet<CostEstimateProgress>(`/api/cost-estimate/status/${jobId}`)
     onProgress(progress)
 
     if (progress.status === 'done' && progress.result) {
@@ -93,6 +91,15 @@ export async function pollCostEstimate(
     }
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
   }
+}
+
+export async function pollCostEstimate(
+  params: CostEstimateParams,
+  onProgress: (progress: CostEstimateProgress) => void,
+  pollIntervalMs = 900,
+): Promise<CostEstimates> {
+  const { job_id } = await request<{ job_id: string }>('/api/cost-estimate/start', params)
+  return pollCostEstimateByJobId(job_id, onProgress, pollIntervalMs)
 }
 
 export interface ItineraryRequest {

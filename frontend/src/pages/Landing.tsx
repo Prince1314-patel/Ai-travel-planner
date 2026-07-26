@@ -3,11 +3,16 @@ import Hero from '@/components/Hero'
 import ChatThread from '@/components/chat/ChatThread'
 import ChatBubble from '@/components/chat/ChatBubble'
 import QuickReplyGroup from '@/components/chat/QuickReplyGroup'
+import InterestPickerMessage from '@/components/chat/InterestPickerMessage'
+import PricingProgressBubble from '@/components/chat/PricingProgressBubble'
+import OptionalWrapupBubble from '@/components/chat/OptionalWrapupBubble'
+import type { CostEstimates } from '@/lib/api'
 import { useChatConversation } from '@/lib/useChatConversation'
 
 export default function Landing() {
   const { sessionId, entries, latest, sending, error, begin, send, choose } = useChatConversation()
   const [draft, setDraft] = useState('')
+  const [costEstimates, setCostEstimates] = useState<CostEstimates | null>(null)
   const started = sessionId !== null
 
   const handleSend = () => {
@@ -37,6 +42,26 @@ export default function Landing() {
             options={latest.options}
             disabled={sending}
             onSelect={(value) => choose(latest.field!, value, value)}
+          />
+        )}
+        {latest?.widget === 'interest_picker' && (
+          <InterestPickerMessage
+            disabled={sending}
+            onSubmit={(interests) => choose('interests', interests, `${interests.length} interests selected`)}
+          />
+        )}
+        {latest?.pricing_job_id && (
+          <PricingProgressBubble
+            jobId={latest.pricing_job_id}
+            destination={latest.state.destination}
+            onResolved={setCostEstimates}
+          />
+        )}
+        {latest?.widget === 'optional_wrapup' && (
+          <OptionalWrapupBubble
+            costEstimates={costEstimates}
+            disabled={sending}
+            onSubmit={(values) => choose('wrapup_submit', values, 'Generate my itinerary')}
           />
         )}
         {error && <p className="text-[14px] text-red-700">{error}</p>}

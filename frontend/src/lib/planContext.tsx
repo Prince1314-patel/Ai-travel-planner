@@ -79,10 +79,6 @@ export const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-export const INTEREST_OPTIONS = [
-  'Art', 'History', 'Food', 'Adventure', 'Relaxation', 'Culture', 'Shopping',
-]
-
 export const FALLBACK_ACCOMMODATION = ['Hotel', 'Hostel', 'Vacation rental', 'Boutique hotel', 'Eco-lodge']
 export const FALLBACK_TRANSPORTATION = ['Taxi', 'Public transit', 'Car rental']
 export const FALLBACK_DINING = ['Street food', 'Casual dining', 'Fine dining', 'Local cuisine', 'International cuisine']

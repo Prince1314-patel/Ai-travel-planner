@@ -1,4 +1,5 @@
-import { INTEREST_OPTIONS, type InterestRating } from '@/lib/planContext'
+import { INTEREST_OPTIONS } from '@/lib/constants'
+import type { Interest } from '@/lib/chatApi'
 
 function DotRating({
   value,
@@ -30,8 +31,8 @@ export default function InterestPicker({
   value,
   onChange,
 }: {
-  value: InterestRating[]
-  onChange: (value: InterestRating[]) => void
+  value: Interest[]
+  onChange: (value: Interest[]) => void
 }) {
   const isSelected = (interest: string) => value.some((v) => v.interest === interest)
   const ratingFor = (interest: string) =>
