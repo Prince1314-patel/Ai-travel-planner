@@ -162,3 +162,38 @@ def get_prompt_cost(destination, num_days, travel_month, total_budget, price_con
             }}
             The placeholders above ("<number>") must be replaced with real numeric values (no quotes) in your response. Ensure 'cost' values are numeric (in INR) and 'unit' values are strings.
             """
+
+
+def get_prompt_chat_turn(history_text, state, next_field, field_options, next_field_hint):
+    options_line = (
+        f" Offer these exact options in your question (the UI will also show them as buttons): "
+        f"{', '.join(field_options)}."
+        if field_options
+        else ""
+    )
+    next_field_line = (
+        f"Ask about: {next_field}. {next_field_hint}{options_line}"
+        if next_field
+        else "All required details are known — write a short closing line, no question needed."
+    )
+    return f"""
+            You are a warm, concise travel-planning assistant chatting with a
+            traveler to gather trip details. Continue the conversation naturally.
+
+            Conversation so far:
+            {history_text}
+
+            What you already know about their trip: {state}
+
+            {next_field_line}
+
+            Respond with a JSON object having exactly this shape:
+            {{
+                "extracted": {{"<field name>": "<value you can confidently read from their last message>"}},
+                "reply": "<one or two warm sentences: acknowledge what they said, then ask your question>"
+            }}
+            Only include fields in "extracted" that you can confidently read from
+            their most recent message — don't guess, and don't repeat fields
+            already known unless they changed it. "reply" must be plain text,
+            no markdown.
+            """

@@ -8,7 +8,12 @@ orchestration live in this same module (added in Task 3) since they're
 tightly coupled to this state shape.
 """
 
-from typing import Optional, TypedDict
+import uuid
+from dataclasses import dataclass, field
+from typing import Callable, Optional, TypedDict
+
+from jsonutil import extract_json_object
+from prompts import get_prompt_chat_turn
 
 
 class Interest(TypedDict):
@@ -200,3 +205,65 @@ def apply_extracted_fields(state: TripState, extracted: dict) -> TripState:
             updated[field] = str(extracted[field]).strip()
 
     return updated  # type: ignore[return-value]
+
+
+@dataclass
+class ChatSession:
+    messages: list[dict] = field(default_factory=list)
+    state: TripState = field(default_factory=empty_state)
+    phase: str = "collecting"
+    pricing_job_id: Optional[str] = None
+    itinerary_job_id: Optional[str] = None
+
+
+CHAT_SESSIONS: dict[str, ChatSession] = {}
+
+
+def create_session() -> tuple[str, ChatSession]:
+    session_id = str(uuid.uuid4())
+    session = ChatSession()
+    CHAT_SESSIONS[session_id] = session
+    return session_id, session
+
+
+def get_session(session_id: str) -> Optional[ChatSession]:
+    return CHAT_SESSIONS.get(session_id)
+
+
+def _history_text(messages: list[dict]) -> str:
+    return "\n".join(f"{m['role']}: {m['content']}" for m in messages[-12:])
+
+
+def run_chat_turn(session: ChatSession, call_llm: Callable[[str], str]) -> str:
+    """Runs one LLM turn: extracts whatever fields it can from the latest
+    user message, merges them into session.state, and returns a reply
+    string. `call_llm` is injected so tests can stub it out.
+
+    Retries once on a malformed response, then falls back to a canned
+    question for the current next-missing-field without losing state.
+    """
+    next_field = next_missing_field(session.state)
+    prompt = get_prompt_chat_turn(
+        history_text=_history_text(session.messages),
+        state=session.state,
+        next_field=next_field,
+        field_options=QUICK_REPLY_OPTIONS.get(next_field) if next_field else None,
+        next_field_hint=CANNED_QUESTIONS.get(next_field, "") if next_field else "",
+    )
+
+    for attempt in range(2):
+        try:
+            raw = call_llm(prompt)
+            parsed = extract_json_object(raw)
+            reply = str(parsed["reply"])
+            extracted = parsed.get("extracted", {})
+            if not isinstance(extracted, dict):
+                extracted = {}
+            session.state = apply_extracted_fields(session.state, extracted)
+            return reply
+        except (ValueError, KeyError):
+            if attempt == 1:
+                break
+
+    fallback_field = next_missing_field(session.state) or next_field
+    return canned_question(fallback_field) if fallback_field else "Got it — could you tell me a bit more?"
