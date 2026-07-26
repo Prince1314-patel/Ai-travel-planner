@@ -111,6 +111,20 @@ def test_wrapup_submit_triggers_itinerary_job(client):
     assert response.json()["itinerary_job_id"] is not None
 
 
+def test_wrapup_submit_ignores_none_values_instead_of_storing_literal_none(client):
+    start = client.post("/api/chat/start", json={"seed_text": "Tokyo"})
+    session_id = start.json()["session_id"]
+    _complete_required_fields(client, session_id)
+
+    response = client.post(
+        f"/api/chat/{session_id}/message",
+        json={"structured_field": "wrapup_submit", "structured_value": {"accommodation": None, "nationality": "Indian"}},
+    )
+
+    assert response.json()["state"]["accommodation"] == ""
+    assert response.json()["state"]["nationality"] == "Indian"
+
+
 def test_chat_get_rehydrates_session(client):
     start = client.post("/api/chat/start", json={"seed_text": "Tokyo"})
     session_id = start.json()["session_id"]

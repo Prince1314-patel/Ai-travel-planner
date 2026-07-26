@@ -398,9 +398,8 @@ def chat_message(session_id: str, payload: ChatMessageRequest):
             {"role": "user", "content": value if isinstance(value, str) else json.dumps(value)}
         )
         if field == "wrapup_submit":
-            session.state = apply_extracted_fields(
-                session.state, value if isinstance(value, dict) else {}
-            )
+            cleaned = {k: v for k, v in value.items() if v is not None} if isinstance(value, dict) else {}
+            session.state = apply_extracted_fields(session.state, cleaned)
             message = "Perfect — let me put your itinerary together."
         else:
             session.state = apply_extracted_fields(session.state, {field: value})
