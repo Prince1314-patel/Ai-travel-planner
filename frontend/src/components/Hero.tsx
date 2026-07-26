@@ -13,8 +13,7 @@
  * FORM: user-pinned brief, executed literally (no concept-seed roll) — this hero is
  * the given landing world; the rest of the product extends it per DESIGN.md.
  */
-import { useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useRef, useState } from 'react'
 import { Upload } from 'lucide-react'
 
 function NavButton({ children }: { children: React.ReactNode }) {
@@ -28,11 +27,9 @@ function NavButton({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function Hero() {
-  const navigate = useNavigate()
+export default function Hero({ onSubmit }: { onSubmit: (text: string) => void }) {
+  const [text, setText] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const goToPlan = () => navigate('/plan')
 
   return (
     <section className="relative min-h-svh w-full overflow-hidden">
@@ -74,7 +71,7 @@ export default function Hero() {
             </button>
             <button
               type="button"
-              onClick={goToPlan}
+              onClick={() => onSubmit(text)}
               className="bg-wandor-dark text-[#fafafa] border-none cursor-pointer font-sans text-[15px] font-medium uppercase tracking-[0.04em] px-5 py-3.5 rounded-full transition-all hover:bg-[#333] active:scale-95"
             >
               Plan My Trip
@@ -92,10 +89,13 @@ export default function Hero() {
           </p>
 
           <div className="relative w-[701px] max-md:w-[calc(100vw-48px)] min-h-[208px] bg-white/[0.06] border-[3px] border-white rounded-[44px] shadow-[0_0_4px_0_rgba(0,0,0,0.15)] overflow-hidden backdrop-blur-[20px]">
-            <p className="absolute left-[29px] top-[57px] -translate-y-1/2 w-[609px] max-md:w-[calc(100%-58px)] font-sans text-xl max-md:text-[17px] font-medium text-wandor-prompt leading-relaxed break-words">
-              I'm planning a 7-day trip to Japan in October. I love food,
-              hidden cafés, scenic hikes, and want to avoid crowds....
-            </p>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="I'm planning a 7-day trip to Japan in October. I love food, hidden cafés, scenic hikes, and want to avoid crowds...."
+              rows={3}
+              className="absolute left-[29px] top-[20px] w-[609px] max-md:w-[calc(100%-58px)] h-[110px] resize-none bg-transparent border-none outline-none font-sans text-xl max-md:text-[17px] font-medium text-wandor-prompt leading-relaxed placeholder:text-wandor-prompt/70"
+            />
 
             <input
               ref={fileInputRef}
@@ -114,7 +114,7 @@ export default function Hero() {
 
             <button
               type="button"
-              onClick={goToPlan}
+              onClick={() => onSubmit(text)}
               className="absolute bottom-[21px] right-[21px] w-[156px] h-14 bg-black border-none rounded-[44px] shadow-[0_0_2px_0_rgba(0,0,0,0.05)] cursor-pointer flex items-center justify-center font-sans text-base font-medium text-[#fafafa] uppercase tracking-[0.02em] transition-all hover:bg-[#333] active:scale-95"
             >
               Plan My Trip
